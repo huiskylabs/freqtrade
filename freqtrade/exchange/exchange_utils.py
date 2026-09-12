@@ -64,7 +64,7 @@ def _exchange_has_helper(ex_mod: ccxt.Exchange, required: dict[str, list[str]]) 
     return [
         k
         for k, v in required.items()
-        if ex_mod.has.get(k) is not True
+        if ex_mod.has.get(k) != True  # noqa: E712
         and (len(v) == 0 or not (all(ex_mod.has.get(x) for x in v)))
     ]
 
@@ -86,6 +86,11 @@ def validate_exchange(exchange: str) -> tuple[bool, str, str, ccxt.Exchange | No
     reasons = []
     reasons_fut = ""
     missing = _exchange_has_helper(ex_mod, EXCHANGE_HAS_REQUIRED)
+    # Backpack does not provide fetchOrder through CCXT, but supports fetching open orders
+    # directly and closed orders through fetchOrders. The exchange subclass implements this
+    # fallback in fetch_order().
+    if exchange.lower() == "backpack" and missing == ["fetchOrder"]:
+        missing = []
     if missing:
         result = False
         reasons.append(f"missing: {', '.join(missing)}")
@@ -182,7 +187,7 @@ def market_is_active(market: dict) -> bool:
     # true then it's true. If it's undefined, then it's most likely true, but not 100% )"
     # See https://github.com/ccxt/ccxt/issues/4874,
     # https://github.com/ccxt/ccxt/issues/4075#issuecomment-434760520
-    return market.get("active", True) is not False
+    return market.get("active", True) != False  # noqa: E712
 
 
 def amount_to_contracts(amount: float, contract_size: float | None) -> float:
@@ -193,7 +198,10 @@ def amount_to_contracts(amount: float, contract_size: float | None) -> float:
     :return: num-contracts
     """
     if contract_size and contract_size != 1:
-        return float(FtPrecise(amount) / FtPrecise(contract_size))
+        try:
+            return float(FtPrecise(amount) / FtPrecise(contract_size))
+        except (ArithmeticError, TypeError, ValueError) as e:
+            raise ValueError(f"Could not convert amount {amount} to contracts") from e
     else:
         return amount
 
@@ -207,7 +215,10 @@ def contracts_to_amount(num_contracts: float, contract_size: float | None) -> fl
     """
 
     if contract_size and contract_size != 1:
-        return float(FtPrecise(num_contracts) * FtPrecise(contract_size))
+        try:
+            return float(FtPrecise(num_contracts) * FtPrecise(contract_size))
+        except (ArithmeticError, TypeError, ValueError) as e:
+            raise ValueError(f"Could not convert contracts {num_contracts} to amount") from e
     else:
         return num_contracts
 
@@ -227,16 +238,19 @@ def amount_to_precision(
     :return: truncated amount
     """
     if amount_precision is not None and precisionMode is not None:
-        precision = int(amount_precision) if precisionMode != TICK_SIZE else amount_precision
-        # precision must be an int for non-ticksize inputs.
-        amount = float(
-            decimal_to_precision(
-                amount,
-                TRUNCATE,  # rounding_mode
-                precision,  # numPrecisionDigits
-                precisionMode,  # counting_mode
+        try:
+            precision = int(amount_precision) if precisionMode != TICK_SIZE else amount_precision
+            # precision must be an int for non-ticksize inputs.
+            amount = float(
+                decimal_to_precision(
+                    amount,
+                    TRUNCATE,  # rounding_mode
+                    precision,  # numPrecisionDigits
+                    precisionMode,  # counting_mode
+                )
             )
-        )
+        except (ArithmeticError, TypeError, ValueError) as e:
+            raise ValueError(f"Could not convert amount {amount} to precision") from e
 
     return amount
 
@@ -299,7 +313,10 @@ def __price_to_precision_significant_digits(
                 sigfig, rounding=dec_ROUND_DOWN if rounding_mode == ROUND_DOWN else dec_ROUND_UP
             )
         )
-    return float(precise)
+    try:
+        return float(precise)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"Could not convert price {price} to significant-digit precision") from e
 
 
 def price_to_precision(
@@ -327,16 +344,19 @@ def price_to_precision(
     if price_precision is not None and precisionMode is not None and not isnan(price):
         if rounding_mode not in (ROUND_UP, ROUND_DOWN):
             # Use CCXT code where possible.
-            return float(
-                decimal_to_precision(
-                    price,
-                    rounding_mode,  # rounding mode
-                    int(price_precision)
-                    if precisionMode != TICK_SIZE
-                    else price_precision,  # numPrecisionDigits
-                    precisionMode,  # counting_mode
+            try:
+                return float(
+                    decimal_to_precision(
+                        price,
+                        rounding_mode,  # rounding mode
+                        int(price_precision)
+                        if precisionMode != TICK_SIZE
+                        else price_precision,  # numPrecisionDigits
+                        precisionMode,  # counting_mode
+                    )
                 )
-            )
+            except (ArithmeticError, TypeError, ValueError) as e:
+                raise ValueError(f"Could not convert price {price} to precision") from e
 
         if precisionMode == TICK_SIZE:
             precision = FtPrecise(price_precision)
@@ -347,7 +367,10 @@ def price_to_precision(
                     res = price_str - missing + precision
                 elif rounding_mode == ROUND_DOWN:
                     res = price_str - missing
-                return round(float(str(res)), 14)
+                try:
+                    return round(float(str(res)), 14)
+                except (TypeError, ValueError) as e:
+                    raise ValueError(f"Could not convert price {price} to tick precision") from e
             return price
         elif precisionMode == DECIMAL_PLACES:
             ndigits = round(price_precision)
