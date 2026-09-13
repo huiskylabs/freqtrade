@@ -1,11 +1,12 @@
+# user_data is provided by the private trading-strategies submodule.
+# Keep runtime/config artifacts out of the parent freqtrade repo.
+user_data/*
 # Freqtrade rules
 config*.json
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
 logfile.txt
-user_data/*
-!user_data/strategy/sample_strategy.py
 # Hui live stack — track strategies (never secrets/configs/dbs)
 *.py
 **
@@ -13,12 +14,6 @@ user_data/*
 backpack/
 backpack/**
 
-!user_data/notebooks
-!user_data/models
-!user_data/freqaimodels
-user_data/freqaimodels/*
-user_data/models/*
-user_data/notebooks/*
 freqtrade-plot.html
 freqtrade-profit-plot.html
 freqtrade/rpc/api_server/ui/*
