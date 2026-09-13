@@ -1,0 +1,4 @@
+ACTIVE LIVE (Risk GO 2026-09-13, Hui \$10k):
+  Strategy: TrendPullbackScaleOutModerate
+  dry_run: false
+  Equity: \$10,000 USDC

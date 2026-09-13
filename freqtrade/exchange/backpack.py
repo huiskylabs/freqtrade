@@ -35,6 +35,9 @@ class Backpack(Exchange):
     _ft_has_futures: FtHas = {
         # Backpack only supports cross margin for futures. CCXT exposes futures as swaps.
         "ccxt_futures_name": "swap",
+        # CCXT has no fetchLeverageTiers for Backpack yet; mirror Hyperliquid for backtesting.
+        "uses_leverage_tiers": False,
+        "mark_ohlcv_price": "futures",
     }
 
     _supported_trading_mode_margin_pairs: list[tuple[TradingMode, MarginMode]] = [
@@ -130,3 +133,10 @@ class Backpack(Exchange):
             "Use conservative stoploss settings and validate live/testnet behavior carefully."
         )
         return None
+
+
+    def get_max_leverage(self, pair: str, stake_amount: float | None) -> float:
+        """Backpack has no CCXT leverage tiers; allow up to 20x for futures."""
+        if self.trading_mode == TradingMode.SPOT:
+            return 1.0
+        return 20.0
