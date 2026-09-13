@@ -7,16 +7,11 @@ logfile.txt
 user_data/*
 !user_data/strategy/sample_strategy.py
 # Hui live stack — track strategies (never secrets/configs/dbs)
-!user_data/strategies/
-!user_data/strategies/*.py
-!user_data/ACTIVE_STRATEGY.txt
-!user_data/backtest_configs/
-!user_data/backtest_configs/**
-!user_data/data/
-!user_data/data/**
-user_data/data/**
-!user_data/data/backpack/
-!user_data/data/backpack/**
+*.py
+**
+**
+backpack/
+backpack/**
 
 !user_data/notebooks
 !user_data/models
@@ -134,3 +129,10 @@ target/
 !config_examples/config_freqai.example.json
 
 docker-compose-*.yml
+
+# private strategies live in submodule trading-strategies/
+
+# allow private submodule checkout + docs
+!/trading-strategies
+!/trading-strategies/
+!/SUBMODULE.md

@@ -1,0 +1,4 @@
+[submodule "trading-strategies"]
+	path = trading-strategies
+	url = https://github.com/huiskylabs/trading-strategies.git
+	branch = main
