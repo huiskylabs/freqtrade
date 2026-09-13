@@ -10,6 +10,11 @@ user_data/*
 !user_data/strategies/
 !user_data/strategies/*.py
 !user_data/ACTIVE_STRATEGY.txt
+!user_data/data/
+!user_data/data/**
+user_data/data/**
+!user_data/data/backpack/
+!user_data/data/backpack/**
 
 !user_data/notebooks
 !user_data/models
