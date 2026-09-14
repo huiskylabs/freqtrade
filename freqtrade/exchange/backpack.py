@@ -1,5 +1,6 @@
 """Backpack exchange subclass."""
 
+import inspect
 import logging
 from typing import Any
 
@@ -55,6 +56,63 @@ class Backpack(Exchange):
         elif self.trading_mode == TradingMode.FUTURES:
             config.update({"options": {"defaultType": self._ft_has["ccxt_futures_name"]}})
         return deep_merge_dicts(config, super()._ccxt_config)
+
+    def _init_ccxt(
+        self, exchange_config: dict[str, Any], sync: bool, ccxt_kwargs: dict[str, Any]
+    ) -> ccxt.Exchange:
+        api = super()._init_ccxt(exchange_config, sync, ccxt_kwargs)
+        self._normalize_ccxt_timeframes(api)
+        self._bound_ohlcv_until(api)
+        return api
+
+    @staticmethod
+    def _normalize_ccxt_timeframes(api: ccxt.Exchange) -> None:
+        """Alias CCXT Backpack's inverted 15/30 keys to standard 15m/30m names.
+
+        Upstream CCXT currently exposes ``{'15': '15m', '30': '30m'}``, which makes Freqtrade
+        reject timeframe ``30m``. Keep the original keys and add the standard aliases so both
+        download-data and backtesting can use ``30m`` / ``15m``.
+        """
+        tfs = dict(getattr(api, "timeframes", None) or {})
+        aliases = {"15": "15m", "30": "30m"}
+        changed = False
+        for bad, good in aliases.items():
+            if bad in tfs and good not in tfs:
+                tfs[good] = tfs[bad] or good
+                changed = True
+        if changed:
+            api.timeframes = tfs
+
+    @staticmethod
+    def _bound_ohlcv_until(api: ccxt.Exchange) -> None:
+        """CCXT Backpack omits endTime when since is set, so the API defaults to now.
+
+        Backpack then rejects the request if startTime..now is too long. Bound ``until`` to
+        ``since + limit * timeframe`` so pagination windows stay valid.
+        """
+        orig = api.fetch_ohlcv
+
+        def _with_until(since, timeframe, limit, params):
+            params = dict(params or {})
+            if since is not None and params.get("until") is None:
+                duration = api.parse_timeframe(timeframe)  # seconds
+                lim = limit or 500
+                params["until"] = int(since) + int(lim) * int(duration) * 1000
+            return params
+
+        if inspect.iscoroutinefunction(orig):
+
+            async def fetch_ohlcv(symbol, timeframe="1m", since=None, limit=None, params=None):
+                params = _with_until(since, timeframe, limit, params)
+                return await orig(symbol, timeframe, since, limit, params)
+
+        else:
+
+            def fetch_ohlcv(symbol, timeframe="1m", since=None, limit=None, params=None):
+                params = _with_until(since, timeframe, limit, params)
+                return orig(symbol, timeframe, since, limit, params)
+
+        api.fetch_ohlcv = fetch_ohlcv  # type: ignore[method-assign]
 
     @retrier(retries=API_FETCH_ORDER_RETRY_COUNT)
     def fetch_order(self, order_id: str, pair: str, params: dict | None = None) -> CcxtOrder:
