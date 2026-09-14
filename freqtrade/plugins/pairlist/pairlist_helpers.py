@@ -3,7 +3,8 @@ import re
 from freqtrade.constants import Config
 
 
-_VALID_PAIR_RE = re.compile(r"[\w:/-]+")
+# CCXT symbols may contain dots in the base asset (for example AAPL.US/USDC:USDC).
+_VALID_PAIR_RE = re.compile(r"[\w:./-]+")
 
 
 def expand_pairlist(
