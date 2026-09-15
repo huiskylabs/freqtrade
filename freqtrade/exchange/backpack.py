@@ -75,7 +75,42 @@ class Backpack(Exchange):
         api = super()._init_ccxt(exchange_config, sync, ccxt_kwargs)
         self._normalize_ccxt_timeframes(api)
         self._bound_ohlcv_until(api)
+        self._normalize_server_time(api)
         return api
+
+    @staticmethod
+    def _normalize_server_time(api: ccxt.Exchange) -> None:
+        """Parse Backpack's numeric /api/v1/time response correctly.
+
+        CCXT's generic safe_integer parser treats the raw numeric response as an
+        indexable value and can return ``1`` instead of the millisecond timestamp.
+        That produces a massive false clock-difference warning and can invalidate
+        authenticated requests. Keep the patch local to Backpack.
+        """
+        def parse(response):
+            if isinstance(response, (int, float, str)):
+                try:
+                    return int(response)
+                except (TypeError, ValueError):
+                    pass
+            if isinstance(response, dict):
+                for key in ("timestamp", "time", "serverTime"):
+                    if key in response:
+                        try:
+                            return int(response[key])
+                        except (TypeError, ValueError):
+                            pass
+            return api.milliseconds()
+
+        if inspect.iscoroutinefunction(api.fetch_time):
+            async def fetch_time(params=None):
+                response = await api.publicGetApiV1Time(params or {})
+                return parse(response)
+        else:
+            def fetch_time(params=None):
+                response = api.publicGetApiV1Time(params or {})
+                return parse(response)
+        api.fetch_time = fetch_time  # type: ignore[method-assign]
 
     @staticmethod
     def _normalize_ccxt_timeframes(api: ccxt.Exchange) -> None:
