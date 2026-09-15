@@ -177,6 +177,17 @@ class Backpack(Exchange):
             return self._order_contracts_to_amount(order)
         except ccxt.OrderNotFound:
             pass
+        except ccxt.ExchangeNotAvailable as e:
+            # Backpack returns HTTP 404 / RESOURCE_NOT_FOUND for orders that
+            # are no longer open. Continue to fetch order history instead of
+            # treating a normal cancellation/expiry as an exchange outage.
+            message = str(e)
+            if "RESOURCE_NOT_FOUND" in message or "Not Found" in message:
+                pass
+            else:
+                raise TemporaryError(
+                    f"Could not get order due to {e.__class__.__name__}. Message: {e}"
+                ) from e
         except ccxt.InvalidOrder as e:
             raise InvalidOrderException(
                 f"Tried to get an invalid order (pair: {pair} id: {order_id}). Message: {e}"
