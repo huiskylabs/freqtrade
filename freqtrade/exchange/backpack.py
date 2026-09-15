@@ -6,7 +6,7 @@ from typing import Any
 
 import ccxt
 
-from freqtrade.enums import MarginMode, TradingMode
+from freqtrade.enums import MarginMode, PriceType, TradingMode
 from freqtrade.exceptions import (
     DDosProtection,
     InvalidOrderException,
@@ -32,6 +32,18 @@ class Backpack(Exchange):
 
     _ft_has: FtHas = {
         "order_time_in_force": ["GTC", "FOK", "IOC", "PO"],
+        # Backpack conditional orders use a market/limit order plus triggerPrice.
+        # Freqtrade's stoploss-on-exchange path adds reduceOnly for futures.
+        "stoploss_on_exchange": True,
+        "stoploss_order_types": {"market": "market", "limit": "limit"},
+        "stop_price_param": "triggerPrice",
+        "stop_price_prop": "triggerPrice",
+        "stop_price_type_field": "triggerBy",
+        "stop_price_type_value_mapping": {
+            PriceType.LAST: "LastPrice",
+            PriceType.MARK: "MarkPrice",
+            PriceType.INDEX: "IndexPrice",
+        },
     }
     _ft_has_futures: FtHas = {
         # Backpack only supports cross margin for futures. CCXT exposes futures as swaps.

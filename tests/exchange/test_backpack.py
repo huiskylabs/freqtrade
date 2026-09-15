@@ -49,6 +49,14 @@ def test_backpack_ccxt_config_futures(default_conf_usdt, mocker):
     assert exchange._ccxt_config == {"options": {"defaultType": "swap"}}
 
 
+def test_backpack_supports_native_stoploss_orders():
+    assert Backpack._ft_has["stoploss_on_exchange"] is True
+    assert Backpack._ft_has["stoploss_order_types"] == {"market": "market", "limit": "limit"}
+    assert Backpack._ft_has["stop_price_param"] == "triggerPrice"
+    assert Backpack._ft_has["stop_price_prop"] == "triggerPrice"
+    assert Backpack._ft_has["stop_price_type_field"] == "triggerBy"
+
+
 def test_backpack_dry_run_liquidation_price_returns_none(default_conf_usdt, mocker, caplog):
     default_conf_usdt["trading_mode"] = "futures"
     default_conf_usdt["margin_mode"] = "cross"
