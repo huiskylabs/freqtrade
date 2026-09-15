@@ -79,6 +79,22 @@ class Backpack(Exchange):
         return api
 
     @staticmethod
+    def _parse_server_time(api: ccxt.Exchange, response: Any) -> int:
+        if isinstance(response, (int, float, str)):
+            try:
+                return int(response)
+            except (TypeError, ValueError):
+                pass
+        if isinstance(response, dict):
+            for key in ("timestamp", "time", "serverTime"):
+                if key in response:
+                    try:
+                        return int(response[key])
+                    except (TypeError, ValueError):
+                        pass
+        return api.milliseconds()
+
+    @staticmethod
     def _normalize_server_time(api: ccxt.Exchange) -> None:
         """Parse Backpack's numeric /api/v1/time response correctly.
 
@@ -87,29 +103,14 @@ class Backpack(Exchange):
         That produces a massive false clock-difference warning and can invalidate
         authenticated requests. Keep the patch local to Backpack.
         """
-        def parse(response):
-            if isinstance(response, (int, float, str)):
-                try:
-                    return int(response)
-                except (TypeError, ValueError):
-                    pass
-            if isinstance(response, dict):
-                for key in ("timestamp", "time", "serverTime"):
-                    if key in response:
-                        try:
-                            return int(response[key])
-                        except (TypeError, ValueError):
-                            pass
-            return api.milliseconds()
-
         if inspect.iscoroutinefunction(api.fetch_time):
             async def fetch_time(params=None):
                 response = await api.publicGetApiV1Time(params or {})
-                return parse(response)
+                return Backpack._parse_server_time(api, response)
         else:
             def fetch_time(params=None):
                 response = api.publicGetApiV1Time(params or {})
-                return parse(response)
+                return Backpack._parse_server_time(api, response)
         api.fetch_time = fetch_time  # type: ignore[method-assign]
 
     @staticmethod
@@ -177,17 +178,21 @@ class Backpack(Exchange):
             "unrealizedPnl", "realizedPnl", "liquidationPrice",
         )
         for position in positions:
-            for field in numeric_fields:
-                value = position.get(field)
-                if isinstance(value, str):
-                    try:
-                        value = float(value)
-                    except ValueError:
-                        continue
-                if field == "liquidationPrice" and value is not None and value <= 0:
-                    value = None
-                position[field] = value
+            self._normalize_position_numbers(position, numeric_fields)
         return positions
+
+    @staticmethod
+    def _normalize_position_numbers(position: dict, numeric_fields: tuple[str, ...]) -> None:
+        for field in numeric_fields:
+            value = position.get(field)
+            if isinstance(value, str):
+                try:
+                    value = float(value)
+                except ValueError:
+                    continue
+            if field == "liquidationPrice" and value is not None and value <= 0:
+                value = None
+            position[field] = value
 
     @retrier(retries=API_FETCH_ORDER_RETRY_COUNT)
     def fetch_order(self, order_id: str, pair: str, params: dict | None = None) -> CcxtOrder:

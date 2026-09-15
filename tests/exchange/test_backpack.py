@@ -1,6 +1,7 @@
 """Tests for Backpack exchange class."""
 
 import logging
+from unittest.mock import MagicMock
 
 from freqtrade.enums import MarginMode, RunMode, TradingMode
 from freqtrade.exchange.backpack import Backpack
@@ -55,6 +56,31 @@ def test_backpack_supports_native_stoploss_orders():
     assert Backpack._ft_has["stop_price_param"] == "triggerPrice"
     assert Backpack._ft_has["stop_price_prop"] == "triggerPrice"
     assert Backpack._ft_has["stop_price_type_field"] == "triggerBy"
+
+
+def test_backpack_parses_numeric_server_time():
+    api = MagicMock()
+    api.milliseconds.return_value = 123
+    assert Backpack._parse_server_time(api, "1789447863293") == 1789447863293
+    assert Backpack._parse_server_time(api, {"serverTime": 456}) == 456
+    assert Backpack._parse_server_time(api, {}) == 123
+
+
+def test_backpack_normalizes_position_numbers():
+    position = {
+        "entryPrice": "100.5",
+        "markPrice": "101.0",
+        "contracts": "0.01",
+        "liquidationPrice": "0",
+    }
+    fields = ("contracts", "entryPrice", "markPrice", "liquidationPrice")
+    Backpack._normalize_position_numbers(position, fields)
+    assert position == {
+        "entryPrice": 100.5,
+        "markPrice": 101.0,
+        "contracts": 0.01,
+        "liquidationPrice": None,
+    }
 
 
 def test_backpack_dry_run_liquidation_price_returns_none(default_conf_usdt, mocker, caplog):
