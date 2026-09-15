@@ -162,6 +162,34 @@ class Backpack(Exchange):
         api.fetch_ohlcv = fetch_ohlcv  # type: ignore[method-assign]
 
     @retrier(retries=API_FETCH_ORDER_RETRY_COUNT)
+    def fetch_positions(self, pair: str | None = None, params: dict | None = None):
+        """Fetch Backpack positions with numeric CCXT fields normalized.
+
+        Backpack can return numeric position fields as strings. Freqtrade's
+        post-fill liquidation calculation performs arithmetic on these values.
+        A zero liquidation price means Backpack did not provide one for the
+        cross-margin account and must remain unavailable rather than synthetic.
+        """
+        positions = super().fetch_positions(pair, params)
+        numeric_fields = (
+            "contracts", "contractSize", "entryPrice", "markPrice", "notional",
+            "leverage", "collateral", "initialMargin", "maintenanceMargin",
+            "unrealizedPnl", "realizedPnl", "liquidationPrice",
+        )
+        for position in positions:
+            for field in numeric_fields:
+                value = position.get(field)
+                if isinstance(value, str):
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        continue
+                if field == "liquidationPrice" and value is not None and value <= 0:
+                    value = None
+                position[field] = value
+        return positions
+
+    @retrier(retries=API_FETCH_ORDER_RETRY_COUNT)
     def fetch_order(self, order_id: str, pair: str, params: dict | None = None) -> CcxtOrder:
         """Fetch an order.
 
