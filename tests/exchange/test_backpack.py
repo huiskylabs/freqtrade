@@ -56,6 +56,11 @@ def test_backpack_supports_native_stoploss_orders():
     assert Backpack._ft_has["stop_price_param"] == "triggerPrice"
     assert Backpack._ft_has["stop_price_prop"] == "triggerPrice"
     assert Backpack._ft_has["stop_price_type_field"] == "triggerBy"
+    assert Backpack._ft_has["stop_price_type_value_mapping"] == {
+        "last": "LastPrice",
+        "mark": "MarkPrice",
+        "index": "IndexPrice",
+    }
 
 
 def test_backpack_parses_numeric_server_time():
