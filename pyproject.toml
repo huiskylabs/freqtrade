@@ -227,12 +227,14 @@ reportReturnType = false  # 28
 reportTypedDictNotRequiredAccess = false  # 27
 
 [tool.uv]
-exclude-newer = "1 week"
+# uv requires RFC3339 timestamps here; keep dependency resolution bounded to
+# the repository's current validation window rather than using unsupported
+# relative values such as "1 week" or "5 days".
+exclude-newer = "2026-09-07T00:00:00Z"
 
 [tool.uv.exclude-newer-package]
-ccxt = false
-ruff = "5 days"
-cryptography = "5 days"
+ruff = "2026-09-09T00:00:00Z"
+cryptography = "2026-09-09T00:00:00Z"
 
 [tool.ruff]
 line-length = 100
