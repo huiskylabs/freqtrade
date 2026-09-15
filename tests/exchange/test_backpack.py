@@ -63,6 +63,12 @@ def test_backpack_supports_native_stoploss_orders():
     }
 
 
+def test_backpack_identifies_closed_order_response():
+    assert Backpack._is_order_not_open_error(Exception('RESOURCE_NOT_FOUND')) is True
+    assert Backpack._is_order_not_open_error(Exception('404 Not Found')) is True
+    assert Backpack._is_order_not_open_error(Exception('timeout')) is False
+
+
 def test_backpack_parses_numeric_server_time():
     api = MagicMock()
     api.milliseconds.return_value = 123

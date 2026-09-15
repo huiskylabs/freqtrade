@@ -194,6 +194,11 @@ class Backpack(Exchange):
                 value = None
             position[field] = value
 
+    @staticmethod
+    def _is_order_not_open_error(error: Exception) -> bool:
+        message = str(error)
+        return "RESOURCE_NOT_FOUND" in message or "Not Found" in message
+
     @retrier(retries=API_FETCH_ORDER_RETRY_COUNT)
     def fetch_order(self, order_id: str, pair: str, params: dict | None = None) -> CcxtOrder:
         """Fetch an order.
@@ -214,8 +219,7 @@ class Backpack(Exchange):
             # Backpack returns HTTP 404 / RESOURCE_NOT_FOUND for orders that
             # are no longer open. Continue to fetch order history instead of
             # treating a normal cancellation/expiry as an exchange outage.
-            message = str(e)
-            if "RESOURCE_NOT_FOUND" in message or "Not Found" in message:
+            if self._is_order_not_open_error(e):
                 pass
             else:
                 raise TemporaryError(
